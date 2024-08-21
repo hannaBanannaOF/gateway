@@ -1,0 +1,22 @@
+server:
+  port: 8080
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: rpgtracker-core
+          uri: http://rpgtracker-core:8080
+          predicates:
+            - Path=/core/**
+
+hbsites:
+  gateway:
+    session_cookie_name: ${HBSITES_GATEWAY_SESSION_COOKIE_NAME}
+    oauth_callback_url: ${HBSITES_GATEWAY_OAUTH_CALLBACK_URL}
+    frontend_url: ${HBSITES_GATEWAY_FRONTEND_URL}
+    keycloak:
+      base_url: ${HBSITES_GATEWAY_KEYCLOAK_BASE_URL}
+      redirect_url: ${HBSITES_GATEWAY_KEYCLOAK_REDIRECT_URL}
+      realm: ${HBSITES_GATEWAY_KEYCLOAK_REALM}
+      client_id: ${HBSITES_GATEWAY_KEYCLOAK_CLIENT_ID}
+      client_secret: ${HBSITES_GATEWAY_KEYCLOAK_CLIENT_SECRET}
