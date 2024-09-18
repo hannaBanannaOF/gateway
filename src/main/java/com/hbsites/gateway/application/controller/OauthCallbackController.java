@@ -5,7 +5,6 @@ import com.hbsites.gateway.infraestructure.config.GatewayCustomProperties;
 import com.hbsites.gateway.infraestructure.store.TokenStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cloud.client.loadbalancer.ClientHttpResponseStatusCodeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
@@ -15,7 +14,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -51,7 +49,12 @@ public class OauthCallbackController {
         UUID sessionTicket = store.createTokenEntry(res);
         exchange.getResponse().setStatusCode(HttpStatus.PERMANENT_REDIRECT);
         exchange.getResponse().getHeaders().setLocation(URI.create(properties.getFrontendUrl()));
-        exchange.getResponse().addCookie(ResponseCookie.from(properties.getSessionCookieName(), sessionTicket.toString()).path("/").build());
+        exchange.getResponse().addCookie(ResponseCookie.from(properties.getSessionCookieName(), sessionTicket.toString())
+            .path("/")
+            .domain("localhost")
+            .sameSite("Strict")
+            .build()
+        );
         return exchange.getResponse().setComplete();
     }
 

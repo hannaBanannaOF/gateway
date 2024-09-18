@@ -33,12 +33,18 @@ public class CustomBearerAuthFilter implements GlobalFilter {
         if (req.getCookies().containsKey(properties.getSessionCookieName())) {
             req = updateHeaders(req);
         }
+        req = req.mutate().headers(h -> {
+            h.setAccessControlAllowCredentials(true);
+            h.setAccessControlAllowOrigin(h.getOrigin());
+        }).build();
         return chain.filter(exchange.mutate().request(req).build()).then(Mono.fromRunnable(() -> {
             var response = exchange.getResponse();
+            response.getHeaders().setAccessControlAllowCredentials(true);
             if (response.getStatusCode() == HttpStatus.UNAUTHORIZED) {
                 response.setStatusCode(HttpStatus.PERMANENT_REDIRECT);
                 response.getHeaders().setCacheControl(CacheControl.noCache());
-                response.getHeaders().setLocation(URI.create(properties.getKeycloak().getRedirectUrl()+"/realms/"+properties.getKeycloak().getRealm()+"/protocol/openid-connect/auth?client_id="+properties.getKeycloak().getClientId()+"&response_type=code&redirect_uri="+properties.getOauthCallbackUrl()+"&scope=openid"));            }
+                response.getHeaders().setLocation(URI.create(properties.getKeycloak().getRedirectUrl()+"/realms/"+properties.getKeycloak().getRealm()+"/protocol/openid-connect/auth?client_id="+properties.getKeycloak().getClientId()+"&response_type=code&redirect_uri="+properties.getOauthCallbackUrl()+"&scope=openid"));
+            }
         }));
     }
 
@@ -48,7 +54,6 @@ public class CustomBearerAuthFilter implements GlobalFilter {
         UUID tokenId = UUID.fromString(Objects.requireNonNull(oldReq.getCookies().getFirst(properties.getSessionCookieName())).getValue());
         tokens = store.storedTokens.get(tokenId);
         if (tokens != null) {
-
             if (!tokens.isAccessTokenValid() && tokens.isRefreshTokenValid()) {
                 System.out.println("refresh");
                 MultiValueMap<String, String> data = new LinkedMultiValueMap<>();

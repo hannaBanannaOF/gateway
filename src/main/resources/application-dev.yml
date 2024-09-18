@@ -8,6 +8,10 @@ spring:
           uri: http://localhost:8080
           predicates:
             - Path=/core/**
+        - id: rpgtracker-gb
+          uri: http://localhost:8082
+          predicates:
+            - Path=/gb/**
 
 hbsites:
   gateway:
