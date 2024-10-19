@@ -1,17 +1,21 @@
 server:
   port: 8081
+
 spring:
-  cloud:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: gateway
+    password: gateway
+
+management:
+  endpoint:
     gateway:
-      routes:
-        - id: rpgtracker-core
-          uri: http://localhost:8080
-          predicates:
-            - Path=/core/**
-        - id: rpgtracker-gb
-          uri: http://localhost:8082
-          predicates:
-            - Path=/gb/**
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: "*"
 
 hbsites:
   gateway:
@@ -24,3 +28,5 @@ hbsites:
       realm: ${HBSITES_GATEWAY_KEYCLOAK_REALM}
       client_id: ${HBSITES_GATEWAY_KEYCLOAK_CLIENT_ID}
       client_secret: ${HBSITES_GATEWAY_KEYCLOAK_CLIENT_SECRET}
+    amqp:
+      queue: ${HBSITES_GATEWAY_AMQP_QUEUE}

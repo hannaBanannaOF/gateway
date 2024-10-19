@@ -3,6 +3,7 @@ package com.hbsites.gateway.infraestructure.filter;
 import com.hbsites.gateway.domain.model.Token;
 import com.hbsites.gateway.infraestructure.config.GatewayCustomProperties;
 import com.hbsites.gateway.infraestructure.store.TokenStore;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -30,9 +31,7 @@ public class CustomBearerAuthFilter implements GlobalFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest req = exchange.getRequest();
-        if (req.getCookies().containsKey(properties.getSessionCookieName())) {
-            req = updateHeaders(req);
-        }
+        req = tokenHandler(req);
         req = req.mutate().headers(h -> {
             h.setAccessControlAllowCredentials(true);
             h.setAccessControlAllowOrigin(h.getOrigin());
@@ -48,45 +47,47 @@ public class CustomBearerAuthFilter implements GlobalFilter {
         }));
     }
 
-    private ServerHttpRequest updateHeaders(ServerHttpRequest oldReq) {
-        Token tokens;
-        TokenStore store = TokenStore.getInstance();
-        UUID tokenId = UUID.fromString(Objects.requireNonNull(oldReq.getCookies().getFirst(properties.getSessionCookieName())).getValue());
-        tokens = store.storedTokens.get(tokenId);
-        if (tokens != null) {
-            if (!tokens.isAccessTokenValid() && tokens.isRefreshTokenValid()) {
-                System.out.println("refresh");
-                MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
-                data.add("grant_type", "refresh_token");
-                data.add("client_id", properties.getKeycloak().getClientId());
-                data.add("client_secret", properties.getKeycloak().getClientSecret());
-                data.add("refresh_token", tokens.getRefreshToken());
-                RestClient cli = RestClient.create(properties.getKeycloak().getBaseUrl());
-                Token res = null;
-                try {
-                    res = cli.post().uri("/realms/"+properties.getKeycloak().getRealm()+"/protocol/openid-connect/token")
+    private ServerHttpRequest tokenHandler(ServerHttpRequest req) {
+        if (req.getCookies().containsKey(properties.getSessionCookieName())) {
+            Token tokens;
+            TokenStore store = TokenStore.getInstance();
+            UUID tokenId = UUID.fromString(Objects.requireNonNull(req.getCookies().getFirst(properties.getSessionCookieName())).getValue());
+            tokens = store.storedTokens.get(tokenId);
+            if (tokens != null) {
+                if (!tokens.isAccessTokenValid() && tokens.isRefreshTokenValid()) {
+                    System.out.println("refresh");
+                    MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
+                    data.add("grant_type", "refresh_token");
+                    data.add("client_id", properties.getKeycloak().getClientId());
+                    data.add("client_secret", properties.getKeycloak().getClientSecret());
+                    data.add("refresh_token", tokens.getRefreshToken());
+                    RestClient cli = RestClient.create(properties.getKeycloak().getBaseUrl());
+                    Token res = null;
+                    try {
+                        res = cli.post().uri("/realms/"+properties.getKeycloak().getRealm()+"/protocol/openid-connect/token")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                             .body(data).retrieve().body(Token.class);
 
-                } catch (Exception e) {
-                    // ignored
+                    } catch (Exception e) {
+                        // ignored
+                    }
+                    if (res != null) {
+                        store.updateToken(tokenId, res);
+                        tokens = res;
+                    } else {
+                        tokens.setAccessToken("");
+                        store.removeTokens(tokenId);
+                    }
                 }
-                if (res != null) {
-                    store.updateToken(tokenId, res);
-                    tokens = res;
-                } else {
-                    tokens.setAccessToken("");
-                    store.removeTokens(tokenId);
-                }
-            }
 
-            Token finalTokens = tokens;
-            return oldReq.mutate()
+                Token finalTokens = tokens;
+                req = req.mutate()
                     .headers(headers -> {
                         headers.add("Authorization", "Bearer "+ finalTokens.getAccessToken());
                         headers.remove("Cookie");
                     }).build();
+            }
         }
-        return oldReq;
+        return req;
     }
 }

@@ -36,4 +36,8 @@ public class TokenStore {
     public void removeTokens(UUID tokenId) {
         storedTokens.remove(tokenId);
     }
+
+    public void clearAll() {
+        this.storedTokens.clear();
+    }
 }
