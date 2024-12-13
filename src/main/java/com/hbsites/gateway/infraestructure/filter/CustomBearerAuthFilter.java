@@ -3,7 +3,6 @@ package com.hbsites.gateway.infraestructure.filter;
 import com.hbsites.gateway.domain.model.Token;
 import com.hbsites.gateway.infraestructure.config.GatewayCustomProperties;
 import com.hbsites.gateway.infraestructure.store.TokenStore;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -32,17 +31,15 @@ public class CustomBearerAuthFilter implements GlobalFilter {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest req = exchange.getRequest();
         req = tokenHandler(req);
-        req = req.mutate().headers(h -> {
-            h.setAccessControlAllowCredentials(true);
-            h.setAccessControlAllowOrigin(h.getOrigin());
-        }).build();
+        req = req.mutate().build();
         return chain.filter(exchange.mutate().request(req).build()).then(Mono.fromRunnable(() -> {
             var response = exchange.getResponse();
             response.getHeaders().setAccessControlAllowCredentials(true);
+            response.getHeaders().setAccessControlAllowOrigin(properties.getFrontendUrl());
             if (response.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-                response.setStatusCode(HttpStatus.PERMANENT_REDIRECT);
                 response.getHeaders().setCacheControl(CacheControl.noCache());
                 response.getHeaders().setLocation(URI.create(properties.getKeycloak().getRedirectUrl()+"/realms/"+properties.getKeycloak().getRealm()+"/protocol/openid-connect/auth?client_id="+properties.getKeycloak().getClientId()+"&response_type=code&redirect_uri="+properties.getOauthCallbackUrl()+"&scope=openid"));
+                response.setStatusCode(HttpStatus.PERMANENT_REDIRECT);
             }
         }));
     }

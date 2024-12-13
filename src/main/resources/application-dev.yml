@@ -1,5 +1,6 @@
 server:
   port: 8081
+  max-http-request-header-size: 10KB
 
 spring:
   rabbitmq:
@@ -7,6 +8,14 @@ spring:
     port: 5672
     username: gateway
     password: gateway
+  data:
+    mongodb:
+      host: localhost
+      port: 27018
+      authentication-database: admin
+      username: root
+      password: mongodb
+      database: gateway
 
 management:
   endpoint:

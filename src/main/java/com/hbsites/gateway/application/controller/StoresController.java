@@ -1,6 +1,5 @@
 package com.hbsites.gateway.application.controller;
 
-import com.hbsites.gateway.infraestructure.store.RoutesStore;
 import com.hbsites.gateway.infraestructure.store.TokenStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +19,5 @@ public class StoresController {
             throw new RuntimeException();
         }
         TokenStore.getInstance().clearAll();
-        RoutesStore.getInstance().clearAll();
     }
 }

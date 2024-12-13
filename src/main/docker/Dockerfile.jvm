@@ -1,4 +1,4 @@
 FROM registry.access.redhat.com/ubi8/openjdk-21:1.19
 
-COPY build/libs/gateway-0.0.1-SNAPSHOT.jar /app.jar
+COPY build/libs/gateway-1.0.0.jar /app.jar
 ENTRYPOINT ["java","-jar","/app.jar"]
