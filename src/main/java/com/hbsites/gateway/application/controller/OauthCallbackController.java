@@ -11,7 +11,9 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
@@ -65,6 +67,15 @@ public class OauthCallbackController {
         }
         TokenStore s = TokenStore.getInstance();
         return s.createTokenEntry(t).toString();
+    }
+
+    @PutMapping("/oauth/bypass/{id}")
+    public void bypassAuthUpdate(@RequestBody Token t, @PathVariable UUID id) {
+        if (!"docker-dev".equals(activeProfile) && !"dev".equals(activeProfile)) {
+            throw new RuntimeException();
+        }
+        TokenStore s = TokenStore.getInstance();
+        s.updateToken(id, t);
     }
 
 }
