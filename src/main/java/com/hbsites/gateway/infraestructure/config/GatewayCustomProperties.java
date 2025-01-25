@@ -21,7 +21,6 @@ public class GatewayCustomProperties {
     @Setter
     public static class KeycloakProperties {
         private String BaseUrl;
-        private String redirectUrl;
         private String realm;
         private String clientId;
         private String clientSecret;

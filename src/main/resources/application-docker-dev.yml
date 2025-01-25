@@ -16,6 +16,15 @@ spring:
       username: root
       password: mongodb
       database: gateway
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: ${HBSITES_GATEWAY_FRONTEND_URL}
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
 
 management:
   endpoint:
@@ -33,7 +42,6 @@ hbsites:
     frontend_url: ${HBSITES_GATEWAY_FRONTEND_URL}
     keycloak:
       base_url: ${HBSITES_GATEWAY_KEYCLOAK_BASE_URL}
-      redirect_url: ${HBSITES_GATEWAY_KEYCLOAK_REDIRECT_URL}
       realm: ${HBSITES_GATEWAY_KEYCLOAK_REALM}
       client_id: ${HBSITES_GATEWAY_KEYCLOAK_CLIENT_ID}
       client_secret: ${HBSITES_GATEWAY_KEYCLOAK_CLIENT_SECRET}

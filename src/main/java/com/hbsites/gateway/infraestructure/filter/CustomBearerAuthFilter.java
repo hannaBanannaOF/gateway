@@ -32,16 +32,7 @@ public class CustomBearerAuthFilter implements GlobalFilter {
         ServerHttpRequest req = exchange.getRequest();
         req = tokenHandler(req);
         req = req.mutate().build();
-        return chain.filter(exchange.mutate().request(req).build()).then(Mono.fromRunnable(() -> {
-            var response = exchange.getResponse();
-            response.getHeaders().setAccessControlAllowCredentials(true);
-            response.getHeaders().setAccessControlAllowOrigin(properties.getFrontendUrl());
-            if (response.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-                response.getHeaders().setCacheControl(CacheControl.noCache());
-                response.getHeaders().setLocation(URI.create(properties.getKeycloak().getRedirectUrl()+"/realms/"+properties.getKeycloak().getRealm()+"/protocol/openid-connect/auth?client_id="+properties.getKeycloak().getClientId()+"&response_type=code&redirect_uri="+properties.getOauthCallbackUrl()+"&scope=openid"));
-                response.setStatusCode(HttpStatus.PERMANENT_REDIRECT);
-            }
-        }));
+        return chain.filter(exchange.mutate().request(req).build());
     }
 
     private ServerHttpRequest tokenHandler(ServerHttpRequest req) {
