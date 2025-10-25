@@ -20,7 +20,8 @@ public class GatewayCustomProperties {
     @Getter
     @Setter
     public static class KeycloakProperties {
-        private String BaseUrl;
+        private String baseUrl;
+        private String baseUrlInternal;
         private String realm;
         private String clientId;
         private String clientSecret;

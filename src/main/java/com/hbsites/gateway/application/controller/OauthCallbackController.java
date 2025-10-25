@@ -42,15 +42,21 @@ public class OauthCallbackController {
         data.add("code", exchange.getRequest().getQueryParams().getFirst("code"));
         data.add("scope", "openid");
 
-        RestClient cli = RestClient.create(properties.getKeycloak().getBaseUrl());
+        RestClient cli = RestClient.create(properties.getKeycloak().getBaseUrlInternal());
         Token res = cli.post().uri("/realms/"+properties.getKeycloak().getRealm()+"/protocol/openid-connect/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(data).retrieve().body(Token.class);
 
+        String redirectUri = properties.getFrontendUrl();
+        String state = exchange.getRequest().getQueryParams().getFirst("state");
+        if (state != null) {
+            redirectUri = redirectUri + state;
+        }
+
         TokenStore store = TokenStore.getInstance();
         UUID sessionTicket = store.createTokenEntry(res);
         exchange.getResponse().setStatusCode(HttpStatus.PERMANENT_REDIRECT);
-        exchange.getResponse().getHeaders().setLocation(URI.create(properties.getFrontendUrl()));
+        exchange.getResponse().getHeaders().setLocation(URI.create(redirectUri));
         exchange.getResponse().addCookie(ResponseCookie.from(properties.getSessionCookieName(), sessionTicket.toString())
             .path("/")
             .domain("localhost")
