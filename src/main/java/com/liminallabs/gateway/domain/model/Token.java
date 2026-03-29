@@ -1,4 +1,4 @@
-package com.hbsites.gateway.domain.model;
+package com.liminallabs.gateway.domain.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;

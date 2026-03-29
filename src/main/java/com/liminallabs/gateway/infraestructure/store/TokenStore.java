@@ -1,6 +1,6 @@
-package com.hbsites.gateway.infraestructure.store;
+package com.liminallabs.gateway.infraestructure.store;
 
-import com.hbsites.gateway.domain.model.Token;
+import com.liminallabs.gateway.domain.model.Token;
 
 import java.util.HashMap;
 import java.util.Map;

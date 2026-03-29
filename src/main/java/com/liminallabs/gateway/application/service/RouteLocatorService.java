@@ -1,7 +1,7 @@
-package com.hbsites.gateway.application.service;
+package com.liminallabs.gateway.application.service;
 
-import com.hbsites.gateway.infraestructure.mongo.GatewayPathDocument;
-import com.hbsites.gateway.infraestructure.mongo.UpdatePathsRepository;
+import com.liminallabs.gateway.infraestructure.mongo.GatewayPathDocument;
+import com.liminallabs.gateway.infraestructure.mongo.UpdatePathsRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

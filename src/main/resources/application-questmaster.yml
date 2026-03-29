@@ -6,8 +6,8 @@ spring:
   rabbitmq:
     host: localhost
     port: 5672
-    username: gateway
-    password: gateway
+    username: questmaster-gateway
+    password: questmaster-gateway
   data:
     mongodb:
       host: localhost
@@ -21,7 +21,7 @@ spring:
       globalcors:
         corsConfigurations:
           '[/**]':
-            allowedOrigins: ${HBSITES_GATEWAY_FRONTEND_URL}
+            allowedOrigins: http://localhost:3000
             allowedMethods: "*"
             allowedHeaders: "*"
             allowCredentials: true
@@ -35,15 +35,16 @@ management:
       exposure:
         include: "*"
 
-hbsites:
+liminallabs:
   gateway:
-    session_cookie_name: ${HBSITES_GATEWAY_SESSION_COOKIE_NAME}
-    oauth_callback_url: ${HBSITES_GATEWAY_OAUTH_CALLBACK_URL}
-    frontend_url: ${HBSITES_GATEWAY_FRONTEND_URL}
+    session_cookie_name: QUESTMASTER_SESSION
+    oauth_callback_url: http://localhost:8081/oauth/callback
+    frontend_url: http://localhost:3000
     keycloak:
-      base_url: ${HBSITES_GATEWAY_KEYCLOAK_BASE_URL}
-      realm: ${HBSITES_GATEWAY_KEYCLOAK_REALM}
-      client_id: ${HBSITES_GATEWAY_KEYCLOAK_CLIENT_ID}
-      client_secret: ${HBSITES_GATEWAY_KEYCLOAK_CLIENT_SECRET}
+      base_url: http://localhost:8080
+      base_url_internal: http://localhost:8080
+      realm: LiminalLabs
+      client_id: questmaster
+      client_secret: xKa7P5CGXwoYnSjQrI7g9UUXYP16LXOw
     amqp:
-      queue: ${HBSITES_GATEWAY_AMQP_QUEUE}
+      queue: questmaster-update-paths

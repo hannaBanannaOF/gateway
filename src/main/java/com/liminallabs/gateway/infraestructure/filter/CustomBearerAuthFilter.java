@@ -1,8 +1,8 @@
-package com.hbsites.gateway.infraestructure.filter;
+package com.liminallabs.gateway.infraestructure.filter;
 
-import com.hbsites.gateway.domain.model.Token;
-import com.hbsites.gateway.infraestructure.config.GatewayCustomProperties;
-import com.hbsites.gateway.infraestructure.store.TokenStore;
+import com.liminallabs.gateway.domain.model.Token;
+import com.liminallabs.gateway.infraestructure.config.GatewayCustomProperties;
+import com.liminallabs.gateway.infraestructure.store.TokenStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;

@@ -1,7 +1,7 @@
-package com.hbsites.gateway;
+package com.liminallabs.gateway;
 
-import com.hbsites.gateway.application.service.RouteLocatorService;
-import com.hbsites.gateway.infraestructure.routelocator.DinamicApiPathRouteLocator;
+import com.liminallabs.gateway.application.service.RouteLocatorService;
+import com.liminallabs.gateway.infraestructure.routelocator.DinamicApiPathRouteLocator;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.boot.SpringApplication;

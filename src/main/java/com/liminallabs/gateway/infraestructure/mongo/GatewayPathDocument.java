@@ -1,4 +1,4 @@
-package com.hbsites.gateway.infraestructure.mongo;
+package com.liminallabs.gateway.infraestructure.mongo;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;

@@ -1,8 +1,8 @@
-package com.hbsites.gateway.infraestructure.amqp.listener;
+package com.liminallabs.gateway.infraestructure.amqp.listener;
 
-import com.hbsites.commons.infrastructure.messages.gateway.GatewayUpdatePaths;
-import com.hbsites.gateway.infraestructure.mongo.GatewayPathDocument;
-import com.hbsites.gateway.infraestructure.mongo.UpdatePathsRepository;
+import com.liminallabs.gateway.domain.model.GatewayUpdatePaths;
+import com.liminallabs.gateway.infraestructure.mongo.GatewayPathDocument;
+import com.liminallabs.gateway.infraestructure.mongo.UpdatePathsRepository;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
@@ -19,8 +19,8 @@ public class QueueListener {
     @Autowired
     private UpdatePathsRepository repository;
 
-    @RabbitListener(queues = {"${hbsites.gateway.amqp.queue}"})
-    public void read(@Payload GatewayUpdatePaths payload) {
+    @RabbitListener(queues = {"${liminallabs.gateway.amqp.queue}"})
+    public void read(@Payload com.liminallabs.gateway.domain.model.GatewayUpdatePaths payload) {
         GatewayPathDocument exist = repository.findByInstance(payload.instance());
         if (exist != null) {
             exist = new GatewayPathDocument(exist.id(), payload.instance(), payload.regex(), payload.url());

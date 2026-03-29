@@ -1,8 +1,8 @@
-package com.hbsites.gateway.application.controller;
+package com.liminallabs.gateway.application.controller;
 
-import com.hbsites.gateway.domain.model.Token;
-import com.hbsites.gateway.infraestructure.config.GatewayCustomProperties;
-import com.hbsites.gateway.infraestructure.store.TokenStore;
+import com.liminallabs.gateway.domain.model.Token;
+import com.liminallabs.gateway.infraestructure.config.GatewayCustomProperties;
+import com.liminallabs.gateway.infraestructure.store.TokenStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -29,7 +29,7 @@ public class OauthCallbackController {
     @Autowired
     private GatewayCustomProperties properties;
 
-    @Value("${spring.profiles.active}")
+    @Value("${spring.profiles.active:PRD}")
     private String activeProfile;
 
     @GetMapping("/oauth/callback")
@@ -68,7 +68,7 @@ public class OauthCallbackController {
 
     @PostMapping("/oauth/bypass")
     public String bypassAuth(@RequestBody Token t) {
-        if (!"docker-dev".equals(activeProfile) && !"dev".equals(activeProfile)) {
+        if (!"dev".equals(activeProfile)) {
             throw new RuntimeException();
         }
         TokenStore s = TokenStore.getInstance();
@@ -77,7 +77,7 @@ public class OauthCallbackController {
 
     @PutMapping("/oauth/bypass/{id}")
     public void bypassAuthUpdate(@RequestBody Token t, @PathVariable UUID id) {
-        if (!"docker-dev".equals(activeProfile) && !"dev".equals(activeProfile)) {
+        if (!"dev".equals(activeProfile)) {
             throw new RuntimeException();
         }
         TokenStore s = TokenStore.getInstance();

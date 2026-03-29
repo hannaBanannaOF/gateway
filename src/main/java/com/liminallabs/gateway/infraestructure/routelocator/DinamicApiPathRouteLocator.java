@@ -1,7 +1,7 @@
-package com.hbsites.gateway.infraestructure.routelocator;
+package com.liminallabs.gateway.infraestructure.routelocator;
 
-import com.hbsites.gateway.application.service.RouteLocatorService;
-import com.hbsites.gateway.infraestructure.mongo.GatewayPathDocument;
+import com.liminallabs.gateway.application.service.RouteLocatorService;
+import com.liminallabs.gateway.infraestructure.mongo.GatewayPathDocument;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
