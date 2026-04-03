@@ -1,6 +1,7 @@
-package com.liminallabs.gateway.infraestructure.config;
+package com.liminallabs.gateway.properties.domain;
 
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -11,12 +12,23 @@ import org.springframework.context.annotation.Configuration;
 @Setter
 public class GatewayCustomProperties {
 
+    @NonNull
     private String sessionCookieName;
     private String oauthCallbackUrl;
     private String frontendUrl;
-    private KeycloakProperties keycloak;
-    private Amqp amqp;
+    private String cookieDomain = "localhost";
+    private String cookieSameSite = "Strict";
+    private boolean cookieSecure = false;
+    private long cookieMaxAge = 3600;
+    private AuthProperties auth;
 
+    @Getter
+    @Setter
+    public static class AuthProperties {
+        @NonNull
+        private String providerName;
+        private KeycloakProperties keycloak;
+    }
 
     @Getter
     @Setter
@@ -27,11 +39,4 @@ public class GatewayCustomProperties {
         private String clientId;
         private String clientSecret;
     }
-
-    @Getter
-    @Setter
-    public static class Amqp {
-        private String queue;
-    }
-
 }

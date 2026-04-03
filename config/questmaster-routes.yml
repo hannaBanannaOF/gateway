@@ -1,0 +1,10 @@
+spring:  
+  cloud:  
+    gateway:
+      server:
+        webflux:
+          routes:  
+            - id: questmaster-core  
+              uri: http://questmaster-core:8080
+              predicates:  
+                - Path=/core/api/**

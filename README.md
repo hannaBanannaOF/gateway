@@ -32,16 +32,14 @@ When a message arrives on the configured RabbitMQ queue, the gateway:
 The gateway includes a global filter that handles OAuth session forwarding:
 
 1. It looks for the configured session cookie.
-2. If a token is found in the in-memory token store, it forwards the request with `Authorization: Bearer <access-token>`.
+2. If a token is found in the token store, it forwards the request with `Authorization: Bearer <access-token>`.
 3. If the access token is expired but the refresh token is still valid, it tries to refresh the session against Keycloak.
 4. If the downstream response is `401 Unauthorized`, the gateway returns a JSON payload containing a `redirectUrl` for the Keycloak login screen.
-5. After Keycloak redirects back to `/oauth/callback`, the gateway exchanges the authorization code for tokens, stores them in memory, and sets a session cookie.
+5. After Keycloak redirects back to `/oauth/callback`, the gateway exchanges the authorization code for tokens, stores them, and sets a session cookie.
 
 Current behavior to be aware of:
 
-- session data is stored only in memory, so restarting the service clears all sessions
 - the OAuth callback currently writes the cookie with `domain=localhost`
-- the in-memory token store is not shared across instances
 
 ## Local Configuration
 
@@ -103,7 +101,6 @@ These endpoints are enabled only when `spring.profiles.active=dev`:
 
 - `POST /oauth/bypass`
 - `PUT /oauth/bypass/{id}`
-- `POST /stores/clear`
 
 They are intended for local development shortcuts and should not be relied on in shared or production environments.
 
@@ -126,3 +123,17 @@ It also requires the standard Spring connection properties for:
 - `spring.rabbitmq.*`
 - `spring.data.mongodb.*`
 - `spring.cloud.gateway.globalcors.*`
+
+## Docker
+
+Build the image:
+
+```bash
+docker build -t labs.liminal/gateway .
+```
+
+Run the container:
+
+```bash
+docker run --rm -p 8080:8080 labs.liminal/gateway
+```

@@ -4,10 +4,12 @@ server:
 spring:
   cloud:
     gateway:
-      globalcors:
-        corsConfigurations:
-          '[/**]':
-            allowedOrigins: ${ALLOWED_ORIGIN}
-            allowedMethods: "*"
-            allowedHeaders: "*"
-            allowCredentials: true
+        server:
+          webflux:
+            globalcors:
+              corsConfigurations:
+                '[/**]':
+                  allowedOrigins: ${ALLOWED_ORIGIN}
+                  allowedMethods: "*"
+                  allowedHeaders: "*"
+                  allowCredentials: true

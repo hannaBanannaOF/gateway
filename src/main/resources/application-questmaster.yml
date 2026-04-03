@@ -1,13 +1,7 @@
 server:
   port: 8081
   max-http-request-header-size: 10KB
-
 spring:
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: questmaster-gateway
-    password: questmaster-gateway
   data:
     mongodb:
       host: localhost
@@ -18,18 +12,20 @@ spring:
       database: gateway
   cloud:
     gateway:
-      globalcors:
-        corsConfigurations:
-          '[/**]':
-            allowedOrigins: http://localhost:3000
-            allowedMethods: "*"
-            allowedHeaders: "*"
-            allowCredentials: true
+        server:
+          webflux:
+            globalcors:
+              corsConfigurations:
+                '[/**]':
+                  allowedOrigins: http://localhost:3000
+                  allowedMethods: "*"
+                  allowedHeaders: "*"
+                  allowCredentials: true
 
 management:
   endpoint:
     gateway:
-      enabled: true
+      access: UNRESTRICTED
   endpoints:
     web:
       exposure:
@@ -37,14 +33,18 @@ management:
 
 liminallabs:
   gateway:
-    session_cookie_name: QUESTMASTER_SESSION
-    oauth_callback_url: http://localhost:8081/oauth/callback
-    frontend_url: http://localhost:3000
-    keycloak:
-      base_url: http://localhost:8080
-      base_url_internal: http://localhost:8080
-      realm: LiminalLabs
-      client_id: questmaster
-      client_secret: xKa7P5CGXwoYnSjQrI7g9UUXYP16LXOw
-    amqp:
-      queue: questmaster-update-paths
+    session-cookie-name: QUESTMASTER_SESSION
+    oauth-callback-url: http://localhost:8081/oauth/callback
+    frontend-url: http://localhost:3000
+    cookie-domain: localhost
+    cookie-same-site: Strict
+    cookie-secure: false
+    cookie-max-age: 3600
+    auth:
+      provider-name: keycloak
+      keycloak:
+        base-url: http://localhost:8080
+        base-url-internal: http://localhost:8080
+        realm: LiminalLabs
+        client-id: questmaster
+        client-secret: xKa7P5CGXwoYnSjQrI7g9UUXYP16LXOw

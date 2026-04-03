@@ -1,0 +1,53 @@
+{"properties": [{
+  "name": "liminallabs.gateway.auth.keycloak.client-secret",
+  "type": "java.lang.String",
+  "description": "Keycloak client secret key"
+}, {
+  "name": "liminallabs.gateway.auth.keycloak.client-id",
+  "type": "java.lang.String",
+  "description": "Keycloak client ID"
+},{
+  "name": "liminallabs.gateway.auth.keycloak.realm",
+  "type": "java.lang.String",
+  "description": "Keycloak realm"
+},{
+  "name": "liminallabs.gateway.auth.keycloak.base-url-internal",
+  "type": "java.lang.String",
+  "description": "Keycloak internal URI, used to exchange code for access_token"
+},{
+  "name": "liminallabs.gateway.auth.keycloak.base-url",
+  "type": "java.lang.String",
+  "description": "Keycloak public URI, used to redirect user to login"
+},{
+  "name": "liminallabs.gateway.auth.provider-name",
+  "type": "java.lang.String",
+  "description": "Auth provider name (only 'keycloak' supported)"
+},{
+  "name": "liminallabs.gateway.cookie-max-age",
+  "type": "java.lang.String",
+  "description": "Session cookie max age, defaults to 3600"
+},{
+  "name": "liminallabs.gateway.cookie-secure",
+  "type": "java.lang.String",
+  "description": "Session cookie secure property, defaults to 'true'"
+},{
+  "name": "liminallabs.gateway.cookie-same-site",
+  "type": "java.lang.String",
+  "description": "Session cookie Same-Site property, defaults to 'Strict'"
+},{
+  "name": "liminallabs.gateway.cookie-domain",
+  "type": "java.lang.String",
+  "description": "Session cookie Domain property, defaults to 'localhost'"
+},{
+  "name": "liminallabs.gateway.frontend-url",
+  "type": "java.lang.String",
+  "description": "Frontend redirect URI after sucessfull login and code exchange"
+},{
+  "name": "liminallabs.gateway.oauth-callback-url",
+  "type": "java.lang.String",
+  "description": "Redirect URI for code exchange"
+},{
+  "name": "liminallabs.gateway.session-cookie-name",
+  "type": "java.lang.String",
+  "description": "Session cookie name"
+}]}
