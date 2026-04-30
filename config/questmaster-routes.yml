@@ -8,3 +8,7 @@ spring:
               uri: http://questmaster-core:8080
               predicates:  
                 - Path=/core/api/**
+            - id: questmaster-coc  
+              uri: http://questmaster-coc:8080
+              predicates:  
+                - Path=/coc/api/**
