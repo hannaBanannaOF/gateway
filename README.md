@@ -1,75 +1,177 @@
 # Gateway
 
-This service is a HTTP gateway. It is built with Spring Cloud Gateway and routes requests dynamically based on entries stored in MongoDB.
+HTTP API gateway for the LiminalLabs platform, built with **Spring Cloud Gateway (WebFlux)** and **Java 21**. It handles request proxying, session-based OAuth 2.0 authentication with Keycloak, and token lifecycle management — all on top of a fully reactive stack.
 
-In addition to request routing, the service:
+## Overview
 
-- listens for route update events on RabbitMQ
-- refreshes gateway routes without a restart
-- integrates with Keycloak for OAuth login
-- stores OAuth tokens in memory and injects the bearer token into proxied requests
+The gateway sits in front of all backend services and is responsible for:
 
-## What the Service Does
+- **Routing** — proxying incoming HTTP requests to the correct upstream service.
+- **Authentication** — intercepting every request via a global filter that resolves a session cookie into a bearer token and injects `Authorization: Bearer <access_token>` before forwarding.
+- **Token lifecycle** — transparently refreshing expired access tokens using the stored refresh token.
+- **OAuth 2.0 callback** — handling the redirect from Keycloak after login, exchanging the authorization code for tokens, and setting a session cookie on the browser.
 
-At startup, and every time routes are refreshed, the gateway loads route definitions from MongoDB through `RouteLocatorService`.
+> Routes are currently defined statically in YAML files. The previous RabbitMQ-based dynamic route refresh and `RouteLocatorService` documented in older versions of this README **are no longer present** in the codebase.
 
-Each route entry contains:
+---
 
-- `instance`: unique route identifier
-- `regex`: path pattern used by Spring Cloud Gateway
-- `uri`: destination service URI
+## Architecture
 
-Important: even though the field is named `regex`, the current implementation passes it to Spring Gateway's `path(...)` predicate. In practice, this means you should provide Spring path patterns such as `/api/orders/**`, not Java regular expressions.
+```
+Browser / Client
+      │
+      ▼
+┌─────────────────────────────────────────┐
+│            Gateway (port 8081)          │
+│                                         │
+│  CustomBearerAuthFilter (GlobalFilter)  │
+│    ├─ reads session cookie              │
+│    ├─ resolves Token from TokenStore    │
+│    ├─ refreshes token if expired        │
+│    └─ injects Authorization header      │
+│                                         │
+│  OauthCallbackController                │
+│    ├─ GET /oauth/callback  (login flow) │
+│    ├─ POST /oauth/bypass   (dev only)   │
+│    └─ PUT  /oauth/bypass/{id} (dev only)│
+│                                         │
+│  Spring Cloud Gateway Routes            │
+│    ├─ /core/api/** → questmaster-core   │
+│    └─ /coc/api/**  → questmaster-coc    │
+└─────────────────────────────────────────┘
+      │                        │
+      ▼                        ▼
+ Keycloak                 MongoDB
+ (OAuth 2.0)          (token storage)
+```
 
-When a message arrives on the configured RabbitMQ queue, the gateway:
+---
 
-1. creates or updates the route entry in MongoDB
-2. publishes a `RefreshRoutesEvent`
-3. rebuilds the active route list
+## Key Components
 
-## Authentication Flow
+### `CustomBearerAuthFilter`
+**`token/infra/CustomBearerAuthFilter.java`** — A `GlobalFilter` applied to every request.
 
-The gateway includes a global filter that handles OAuth session forwarding:
+1. Reads the configured session cookie from the request.
+2. Parses the cookie value as a `UUID` and fetches the corresponding `Token` from `TokenStore`.
+3. If the access token is still valid, injects `Authorization: Bearer <access_token>` and strips the `Cookie` header before forwarding.
+4. If the access token is expired but the refresh token is still valid, calls `AuthProvider.refreshToken()`, updates the store, and forwards with the new token.
+5. If the refresh also fails, clears the session and strips the access token.
+6. After the chain executes, if the downstream service responds with `401 Unauthorized`, the filter intercepts the response and returns a JSON body containing a `redirectUrl` pointing to the Keycloak login page.
 
-1. It looks for the configured session cookie.
-2. If a token is found in the token store, it forwards the request with `Authorization: Bearer <access-token>`.
-3. If the access token is expired but the refresh token is still valid, it tries to refresh the session against Keycloak.
-4. If the downstream response is `401 Unauthorized`, the gateway returns a JSON payload containing a `redirectUrl` for the Keycloak login screen.
-5. After Keycloak redirects back to `/oauth/callback`, the gateway exchanges the authorization code for tokens, stores them, and sets a session cookie.
+### `TokenStore`
+**`token/application/TokenStore.java`** — Manages the token lifecycle with a two-layer storage strategy:
 
-Current behavior to be aware of:
+- **In-memory cache** (`ConcurrentHashMap<UUID, Token>`) for fast reads on hot paths.
+- **MongoDB** (`tokens` collection via `TokenRepository`) as the persistent store and fallback.
 
-- the OAuth callback currently writes the cookie with `domain=localhost`
+Operations: `createTokenEntry`, `getToken`, `updateToken`, `removeTokens`, `clearAll`.
 
-## Local Configuration
+### `Token`
+**`token/domain/Token.java`** — Domain model representing an OAuth token set. Maps JSON fields `access_token`, `refresh_token`, `expires_in`, and `refresh_expires_in` from the Keycloak response. Includes two validation helpers:
+- `isAccessTokenValid()` — checks whether `creationDateTime + expiresIn` is still in the future.
+- `isRefreshTokenValid()` — same check for the refresh token.
 
-The repository includes two configuration files:
+### `AuthProvider` / `KeycloakAuthProvider`
+**`auth_provider/application/AuthProvider.java`** — Provider interface decoupling the auth logic from Keycloak specifics:
 
-- `src/main/resources/application.yml`: base config with the default port (`8080`) and CORS origin from `ALLOWED_ORIGIN`
-- `src/main/resources/application-questmaster.yml`: a fuller local profile with MongoDB, RabbitMQ, Keycloak, Actuator, and local frontend settings
+```java
+String getAuthorizationUrl(String redirectUri, String state);
+Token exchangeCodeForToken(String code, String redirectUri);
+Token refreshToken(String refreshToken);
+boolean validateToken(String token);
+String getProviderName();
+```
 
-The `questmaster` profile currently uses:
+**`auth_provider/infra/KeycloakAuthProvider.java`** — Keycloak implementation, activated via:
+```yaml
+liminallabs.gateway.auth.provider-name: keycloak
+```
+Uses Spring's `RestClient` (synchronous, blocking) to talk to Keycloak's OpenID Connect token endpoint. Note: `validateToken` is a stub that always returns `true`.
 
-- server port `8081`
-- RabbitMQ on `localhost:5672`
-- MongoDB on `localhost:27018`
-- frontend URL `http://localhost:3000`
-- OAuth callback URL `http://localhost:8081/oauth/callback`
+### `OauthCallbackController`
+**`token/transport/OauthCallbackController.java`** — Handles the OAuth 2.0 authorization code flow:
 
-## Required Dependencies
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/oauth/callback` | Receives `code` and `state` from Keycloak, exchanges the code for tokens, stores them, sets the session cookie, and redirects the browser to the frontend. |
+| `POST` | `/oauth/bypass` | **(dev profile only)** Injects a token directly into the store; returns the session UUID. |
+| `PUT`  | `/oauth/bypass/{id}` | **(dev profile only)** Updates an existing token entry. |
 
-To run the gateway in a meaningful way, you will usually need:
+The `state` query parameter forwarded by Keycloak is used as the post-login redirect path appended to `frontendUrl`.
+
+### `GatewayCustomProperties`
+**`properties/domain/GatewayCustomProperties.java`** — Typed configuration bound to the `liminallabs.gateway` prefix:
+
+| Property | Description |
+|----------|-------------|
+| `session-cookie-name` | Name of the cookie carrying the session UUID |
+| `oauth-callback-url` | Full callback URL registered in Keycloak |
+| `frontend-url` | Base URL the browser is redirected to after login |
+| `cookie-domain` | Domain attribute of the session cookie |
+| `cookie-same-site` | `SameSite` attribute (`Strict` by default) |
+| `cookie-secure` | Whether to set the `Secure` flag |
+| `cookie-max-age` | Cookie max-age in seconds (default: `3600`) |
+| `auth.provider-name` | Which `AuthProvider` bean to activate (`keycloak`) |
+| `auth.keycloak.base-url` | Public Keycloak base URL (used to build the login redirect) |
+| `auth.keycloak.base-url-internal` | Internal Keycloak URL (used for server-to-server token calls) |
+| `auth.keycloak.realm` | Keycloak realm name |
+| `auth.keycloak.client-id` | OAuth client ID |
+| `auth.keycloak.client-secret` | OAuth client secret |
+
+---
+
+## Static Routes
+
+Routes are defined in `config/questmaster-routes.yml` and loaded as a Spring Cloud Gateway YAML config:
+
+| Route ID | Path Predicate | Upstream |
+|----------|---------------|----------|
+| `questmaster-core` | `/core/api/**` | `http://questmaster-core:8080` |
+| `questmaster-coc`  | `/coc/api/**`  | `http://questmaster-coc:8080`  |
+
+To mount this file at startup, include it via `spring.config.import` or pass it with `--spring.config.additional-location`.
+
+---
+
+## OAuth 2.0 Login Flow
+
+```
+Browser                     Gateway                    Keycloak
+  │                            │                           │
+  │── GET /core/api/... ──────►│                           │
+  │                            │── forward to upstream ───►│
+  │                            │◄── 401 Unauthorized ──────│
+  │◄── { redirectUrl: ... } ───│                           │
+  │                            │                           │
+  │─────────────────────── redirect to Keycloak ──────────►│
+  │                            │                           │
+  │◄────────────── redirect to /oauth/callback?code=...────│
+  │                            │                           │
+  │── GET /oauth/callback ────►│                           │
+  │                            │── POST /token (code) ────►│
+  │                            │◄── { access_token, ... }──│
+  │                            │                           │
+  │                            │ store token in MongoDB     │
+  │                            │ + in-memory cache          │
+  │◄── 308 + Set-Cookie ───────│                           │
+  │                            │                           │
+  │── GET /core/api/... ──────►│                           │
+  │   (with session cookie)    │ resolve token from store   │
+  │                            │── forward + Bearer token ─►│
+```
+
+---
+
+## Running Locally
+
+### Prerequisites
 
 - Java 21
-- RabbitMQ
-- MongoDB
-- Keycloak
+- MongoDB (default: `localhost:27018`, database: `gateway`)
+- Keycloak (default: `localhost:8080`)
 
-If you only need the app to start, you can provide your own Spring configuration and infrastructure values instead.
-
-## Running the Service
-
-Run with the local Questmaster profile:
+### Start with the `questmaster` profile
 
 ```bash
 ./gradlew bootRun --args='--spring.profiles.active=questmaster'
@@ -81,50 +183,53 @@ On Windows PowerShell:
 .\gradlew.bat bootRun --args="--spring.profiles.active=questmaster"
 ```
 
-## Route Update Message Format
+The service will start on **port 8081**.
 
-The RabbitMQ listener expects a JSON payload shaped like this:
+### Load the questmaster routes
 
-```json
-{
-  "instance": "orders-service",
-  "regex": "/api/orders/**",
-  "url": "http://localhost:8090"
-}
+Pass the route config file as an additional location:
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=questmaster --spring.config.additional-location=file:./config/questmaster-routes.yml'
 ```
 
-That payload is stored as a MongoDB route document and then used to rebuild the gateway routes.
+---
 
-## Development-Only Endpoints
+## Configuration Reference
 
-These endpoints are enabled only when `spring.profiles.active=dev`:
+### `application.yml` (base)
 
-- `POST /oauth/bypass`
-- `PUT /oauth/bypass/{id}`
+| Property | Default | Description |
+|----------|---------|-------------|
+| `server.port` | `8080` | HTTP port |
+| `spring.cloud.gateway.server.webflux.globalcors...allowedOrigins` | `${ALLOWED_ORIGIN}` | CORS allowed origin |
 
-They are intended for local development shortcuts and should not be relied on in shared or production environments.
+### `application-questmaster.yml` (local profile)
 
-## Main Configuration Properties
+| Property | Value |
+|----------|-------|
+| `server.port` | `8081` |
+| `server.max-http-request-header-size` | `10KB` |
+| `spring.data.mongodb.host` | `localhost` |
+| `spring.data.mongodb.port` | `27018` |
+| `spring.data.mongodb.database` | `gateway` |
+| `spring.data.mongodb.username` | `root` |
+| `liminallabs.gateway.session-cookie-name` | `QUESTMASTER_SESSION` |
+| `liminallabs.gateway.oauth-callback-url` | `http://localhost:8081/oauth/callback` |
+| `liminallabs.gateway.frontend-url` | `http://localhost:3000` |
+| `liminallabs.gateway.cookie-domain` | `localhost` |
+| `liminallabs.gateway.cookie-same-site` | `Strict` |
+| `liminallabs.gateway.cookie-secure` | `false` |
+| `liminallabs.gateway.cookie-max-age` | `3600` |
+| `liminallabs.gateway.auth.provider-name` | `keycloak` |
+| `liminallabs.gateway.auth.keycloak.realm` | `LiminalLabs` |
+| `liminallabs.gateway.auth.keycloak.client-id` | `questmaster` |
 
-The application depends on these custom properties under `liminallabs.gateway`:
-
-- `session_cookie_name`
-- `oauth_callback_url`
-- `frontend_url`
-- `keycloak.base_url`
-- `keycloak.base_url_internal`
-- `keycloak.realm`
-- `keycloak.client_id`
-- `keycloak.client_secret`
-- `amqp.queue`
-
-It also requires the standard Spring connection properties for:
-
-- `spring.rabbitmq.*`
-- `spring.data.mongodb.*`
-- `spring.cloud.gateway.globalcors.*`
+---
 
 ## Docker
+
+The Dockerfile uses a two-stage build with `ubi8/openjdk-21` as both builder and runtime, running as user `185` (the default UBI non-root user).
 
 Build the image:
 
@@ -135,5 +240,32 @@ docker build -t labs.liminal/gateway .
 Run the container:
 
 ```bash
-docker run --rm -p 8080:8080 labs.liminal/gateway
+docker run --rm -p 8081:8081 \
+  -e ALLOWED_ORIGIN=http://localhost:3000 \
+  labs.liminal/gateway
 ```
+
+> **Note:** When running in a container, make sure to override MongoDB and Keycloak connection properties either via environment variables or a mounted config file, since the `questmaster` profile points to `localhost`.
+
+---
+
+## Known Limitations & Notes
+
+- **`validateToken` is a stub** — `KeycloakAuthProvider.validateToken()` always returns `true`. Token validation relies entirely on the expiry timestamps embedded in the `Token` object itself.
+- **Blocking HTTP inside a reactive pipeline** — `KeycloakAuthProvider` uses the synchronous `RestClient` to call Keycloak. The callback controller wraps this call with `Schedulers.boundedElastic()` to avoid blocking the event loop, but the filter does not — this is a potential blocking call on the reactive thread.
+- **Dev-only bypass endpoints are guarded by profile check, not security config** — `POST /oauth/bypass` and `PUT /oauth/bypass/{id}` are always registered as routes; they just throw `IllegalStateException` if the active profile is not `dev`. They are not protected by any network-level restriction.
+
+---
+
+## Tech Stack
+
+| Technology | Version | Role |
+|------------|---------|------|
+| Java | 21 | Runtime |
+| Spring Boot | 3.5.13 | Application framework |
+| Spring Cloud Gateway | 2025.0.2 | Reactive HTTP routing |
+| Spring Cloud Kubernetes | 2025.0.2 | Kubernetes service discovery |
+| Spring Data MongoDB | — | Token persistence |
+| Spring Boot Actuator | — | Health & management endpoints |
+| Lombok | 1.18.34 | Boilerplate reduction |
+| Keycloak | — | OAuth 2.0 / OpenID Connect provider |

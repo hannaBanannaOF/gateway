@@ -27,16 +27,5 @@ public class GatewayCustomProperties {
     public static class AuthProperties {
         @NonNull
         private String providerName;
-        private KeycloakProperties keycloak;
-    }
-
-    @Getter
-    @Setter
-    public static class KeycloakProperties {
-        private String baseUrl;
-        private String baseUrlInternal;
-        private String realm;
-        private String clientId;
-        private String clientSecret;
     }
 }
