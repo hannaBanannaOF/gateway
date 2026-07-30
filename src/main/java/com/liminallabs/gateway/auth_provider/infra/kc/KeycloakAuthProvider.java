@@ -1,4 +1,4 @@
-package com.liminallabs.gateway.auth_provider.infra;
+package com.liminallabs.gateway.auth_provider.infra.kc;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

@@ -1,4 +1,4 @@
-package com.liminallabs.gateway.auth_provider.infra;
+package com.liminallabs.gateway.auth_provider.infra.kc;
 
 import lombok.Getter;
 import lombok.Setter;

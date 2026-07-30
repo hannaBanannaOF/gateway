@@ -11,7 +11,7 @@ The gateway sits in front of all backend services and is responsible for:
 - **Token lifecycle** — transparently refreshing expired access tokens using the stored refresh token.
 - **OAuth 2.0 callback** — handling the redirect from Keycloak after login, exchanging the authorization code for tokens, and setting a session cookie on the browser.
 
-> Routes are currently defined statically in YAML files. The previous RabbitMQ-based dynamic route refresh and `RouteLocatorService` documented in older versions of this README **are no longer present** in the codebase.
+> Routes are currently defined statically in YAML files. To update routes on the fly, use the Spring Cloud Gateway Admin API to update routes, or restart the gateway to apply changes from the YAML files.
 
 ---
 
