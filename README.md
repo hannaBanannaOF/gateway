@@ -95,8 +95,8 @@ Uses Spring's `RestClient` (synchronous, blocking) to talk to Keycloak's OpenID 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET`  | `/oauth/callback` | Receives `code` and `state` from Keycloak, exchanges the code for tokens, stores them, sets the session cookie, and redirects the browser to the frontend. |
-| `POST` | `/oauth/bypass` | **(dev profile only)** Injects a token directly into the store; returns the session UUID. |
-| `PUT`  | `/oauth/bypass/{id}` | **(dev profile only)** Updates an existing token entry. |
+| `POST` | `/oauth/bypass` | **depends on application property `liminallabs.gateway.security.allow-token-bypass`** Injects a token directly into the store; returns the session UUID. |
+| `PUT`  | `/oauth/bypass/{id}` | **depends on application property `liminallabs.gateway.security.allow-token-bypass`** Updates an existing token entry. |
 
 The `state` query parameter forwarded by Keycloak is used as the post-login redirect path appended to `frontendUrl`.
 
@@ -193,6 +193,14 @@ Pass the route config file as an additional location:
 ./gradlew bootRun --args='--spring.profiles.active=questmaster --spring.config.additional-location=file:./config/questmaster-routes.yml'
 ```
 
+### Allow OAuth bypass
+
+Enable OAuth bypass endpoints by setting the application property `liminallabs.gateway.security.allow-token-bypass` to `true`.
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=questmaster --spring.config.additional-location=file:./config/questmaster-routes.yml --liminallabs.gateway.security.allow-token-bypass=true'
+```
+
 ---
 
 ## Configuration Reference
@@ -225,6 +233,12 @@ Pass the route config file as an additional location:
 | `liminallabs.gateway.auth.keycloak.realm` | `LiminalLabs` |
 | `liminallabs.gateway.auth.keycloak.client-id` | `questmaster` |
 
+### Dev only property
+
+| Property | Description |
+|----------|-------------|
+| `liminallabs.gateway.security.allow-token-bypass` | `true` allows token bypass, `false` disables it. |
+
 ---
 
 ## Docker
@@ -253,7 +267,6 @@ docker run --rm -p 8081:8081 \
 
 - **`validateToken` is a stub** — `KeycloakAuthProvider.validateToken()` always returns `true`. Token validation relies entirely on the expiry timestamps embedded in the `Token` object itself.
 - **Blocking HTTP inside a reactive pipeline** — `KeycloakAuthProvider` uses the synchronous `RestClient` to call Keycloak. The callback controller wraps this call with `Schedulers.boundedElastic()` to avoid blocking the event loop, but the filter does not — this is a potential blocking call on the reactive thread.
-- **Dev-only bypass endpoints are guarded by profile check, not security config** — `POST /oauth/bypass` and `PUT /oauth/bypass/{id}` are always registered as routes; they just throw `IllegalStateException` if the active profile is not `dev`. They are not protected by any network-level restriction.
 
 ---
 
