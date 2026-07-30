@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot - Questmaster (Dev Bypass)",
+            "request": "launch",
+            "mainClass": "com.liminallabs.gateway.GatewayApplication",
+            "args": [
+                "--spring.profiles.active=questmaster",
+                "--spring.config.additional-location=file:./config/questmaster-routes.yml",
+                "--liminallabs.gateway.security.allow-token-bypass=true"
+            ]
+        }
+    ]
+}
