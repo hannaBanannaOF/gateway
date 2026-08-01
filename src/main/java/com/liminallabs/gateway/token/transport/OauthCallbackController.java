@@ -65,13 +65,17 @@ public class OauthCallbackController {
     }
 
     private ResponseCookie buildSessionCookie(String sessionId) {
-        return ResponseCookie.from(properties.getSessionCookieName(), sessionId)
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(properties.getSessionCookieName(), sessionId)
                 .path("/")
-                .domain(properties.getCookieDomain())
                 .sameSite(properties.getCookieSameSite())
                 .secure(properties.isCookieSecure())
-                .httpOnly(true) // Adicionar segurança
-                .maxAge(properties.getCookieMaxAge())
-                .build();
+                .httpOnly(true)
+                .maxAge(properties.getCookieMaxAge());
+
+        if (properties.getCookieDomain() != null && !properties.getCookieDomain().isBlank()) {
+            builder.domain(properties.getCookieDomain());
+        }
+
+        return builder.build();
     }
 }

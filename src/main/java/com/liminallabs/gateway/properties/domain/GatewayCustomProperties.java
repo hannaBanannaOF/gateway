@@ -16,7 +16,7 @@ public class GatewayCustomProperties {
     private String sessionCookieName;
     private String oauthCallbackUrl;
     private String frontendUrl;
-    private String cookieDomain = "localhost";
+    private String cookieDomain;
     private String cookieSameSite = "Strict";
     private boolean cookieSecure = false;
     private long cookieMaxAge = 3600;
