@@ -47,7 +47,7 @@ public class OauthCallbackController {
             // Cria a sessão e o cookie
             UUID sessionTicket = tokenStore.createTokenEntry(token);
 
-            exchange.getResponse().setStatusCode(HttpStatus.PERMANENT_REDIRECT);
+            exchange.getResponse().setStatusCode(HttpStatus.SEE_OTHER);
             exchange.getResponse().getHeaders().setLocation(URI.create(redirectUri));
             exchange.getResponse().addCookie(
                     buildSessionCookie(sessionTicket.toString()));
