@@ -40,3 +40,6 @@ out/
 !.vscode/tasks.json
 !.vscode/settings.json
 !.vscode/extensions.json
+
+### Segredos locais ###
+config/*-secrets.yml

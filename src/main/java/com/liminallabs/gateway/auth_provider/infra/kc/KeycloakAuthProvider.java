@@ -1,94 +1,118 @@
 package com.liminallabs.gateway.auth_provider.infra.kc;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Instant;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.liminallabs.gateway.auth_provider.application.AuthProvider;
+import com.liminallabs.gateway.auth_provider.application.AuthProviderUnavailableException;
+import com.liminallabs.gateway.auth_provider.application.InvalidGrantException;
+import com.liminallabs.gateway.auth_provider.application.Pkce;
 import com.liminallabs.gateway.token.domain.Token;
 
-@Component
-@ConditionalOnProperty(name = "liminallabs.gateway.auth.provider-name", havingValue = "keycloak")
+import reactor.core.publisher.Mono;
+
 public class KeycloakAuthProvider implements AuthProvider {
 
-    @Autowired
-    private KeycloakProperties props;
+    private final KeycloakProperties props;
+    private final WebClient webClient;
+    private final Clock clock;
 
-    @Override
-    public String getAuthorizationUrl(String redirectUri, String state) {
-        StringBuilder url = new StringBuilder()
-            .append(props.getBaseUrl())
-            .append("/realms/").append(props.getRealm())
-            .append("/protocol/openid-connect/auth")
-            .append("?client_id=").append(props.getClientId())
-            .append("&response_type=code")
-            .append("&redirect_uri=").append(redirectUri)
-            .append("&scope=openid");
-
-        if (state != null) {
-            url.append("&state=").append(state);
-        }
-
-        return url.toString();
+    KeycloakAuthProvider(KeycloakProperties props, WebClient.Builder webClientBuilder, Clock clock) {
+        this.props = props;
+        this.clock = clock;
+        this.webClient = webClientBuilder.baseUrl(props.baseUrlInternal()).build();
     }
 
     @Override
-    public Token exchangeCodeForToken(String code, String redirectUri) {
-        MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
-        data.add("redirect_uri", redirectUri);
-        data.add("grant_type", "authorization_code");
-        data.add("client_id", props.getClientId());
-        data.add("client_secret", props.getClientSecret());
-        data.add("code", code);
-        data.add("scope", "openid");
+    public String authorizationUrl(String redirectUri, String state, String codeChallenge) {
+        return props.baseUrl()
+            + realmPath() + "/auth"
+            + "?client_id=" + encode(props.clientId())
+            + "&response_type=code"
+            + "&redirect_uri=" + encode(redirectUri)
+            + "&scope=openid"
+            + "&state=" + encode(state)
+            + "&code_challenge=" + encode(codeChallenge)
+            + "&code_challenge_method=" + Pkce.METHOD;
+    }
 
-        try {
-            return restClient().post()
-                .uri("/realms/" + props.getRealm() + "/protocol/openid-connect/token")
+    @Override
+    public Mono<Token> exchangeCode(String code, String redirectUri, String codeVerifier) {
+        MultiValueMap<String, String> form = clientForm("authorization_code");
+        form.add("code", code);
+        form.add("redirect_uri", redirectUri);
+        form.add("code_verifier", codeVerifier);
+        return requestToken(form, "troca do code");
+    }
+
+    @Override
+    public Mono<Token> refresh(String refreshToken) {
+        MultiValueMap<String, String> form = clientForm("refresh_token");
+        form.add("refresh_token", refreshToken);
+        return requestToken(form, "refresh");
+    }
+
+    private Mono<Token> requestToken(MultiValueMap<String, String> form, String operation) {
+        return Mono.defer(() -> {
+            // Conta a validade a partir do envio: conservador se a resposta demorar
+            Instant requestedAt = clock.instant();
+            return webClient.post()
+                .uri(realmPath() + "/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(data)
-                .retrieve()
-                .body(Token.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to exchange code for token", e);
+                .body(BodyInserters.fromFormData(form))
+                .exchangeToMono(response -> response.statusCode().is2xxSuccessful()
+                    ? response.bodyToMono(KeycloakTokenResponse.class)
+                    : response.bodyToMono(OAuthError.class)
+                        .onErrorResume(e -> Mono.empty())
+                        .defaultIfEmpty(OAuthError.UNKNOWN)
+                        .flatMap(error -> Mono.error(toException(response.statusCode(), error, operation))))
+                .map(response -> response.toToken(requestedAt));
+        })
+            .timeout(props.timeout())
+            .onErrorMap(e -> !(e instanceof InvalidGrantException || e instanceof AuthProviderUnavailableException),
+                e -> new AuthProviderUnavailableException("Keycloak: " + operation + " falhou", e));
+    }
+
+    private static RuntimeException toException(HttpStatusCode status, OAuthError error, String operation) {
+        // Só invalid_grant diz respeito ao token do usuário; invalid_client etc. é problema de configuração
+        if (status.value() == HttpStatus.BAD_REQUEST.value() && "invalid_grant".equals(error.error())) {
+            return new InvalidGrantException("Keycloak rejeitou o grant na " + operation + ": " + error.description());
         }
+        return new AuthProviderUnavailableException(
+            "Keycloak respondeu " + status.value() + " (" + error.error() + ") na " + operation, null);
     }
 
-    @Override
-    public Token refreshToken(String refreshToken) {
-        MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
-        data.add("grant_type", "refresh_token");
-        data.add("client_id", props.getClientId());
-        data.add("client_secret", props.getClientSecret());
-        data.add("refresh_token", refreshToken);
-
-        try {
-            return restClient().post()
-                .uri("/realms/" + props.getRealm() + "/protocol/openid-connect/token")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(data)
-                .retrieve()
-                .body(Token.class);
-        } catch (Exception e) {
-            return null;
-        }
+    private MultiValueMap<String, String> clientForm(String grantType) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("grant_type", grantType);
+        form.add("client_id", props.clientId());
+        form.add("client_secret", props.clientSecret());
+        return form;
     }
 
-    @Override
-    public boolean validateToken(String token) {
-        return true;
+    private String realmPath() {
+        return "/realms/" + props.realm() + "/protocol/openid-connect";
     }
 
-    @Override
-    public String getProviderName() {
-        return "keycloak";
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    private RestClient restClient() {
-        return RestClient.create(props.getBaseUrlInternal());
+    record OAuthError(
+        @JsonProperty("error") String error,
+        @JsonProperty("error_description") String description
+    ) {
+        static final OAuthError UNKNOWN = new OAuthError("unknown", null);
     }
 }

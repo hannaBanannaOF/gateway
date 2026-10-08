@@ -2,13 +2,14 @@ server:
   port: 8081
   max-http-request-header-size: 10KB
 spring:
+  config:
+    # Segredos ficam fora do git: veja config/questmaster-secrets.example.yml
+    import: optional:file:./config/questmaster-secrets.yml
   data:
     mongodb:
       host: localhost
       port: 27018
       authentication-database: admin
-      username: root
-      password: mongodb
       database: gateway
   cloud:
     gateway:
@@ -47,4 +48,3 @@ liminallabs:
         base-url-internal: http://localhost:8080
         realm: LiminalLabs
         client-id: questmaster
-        client-secret: xKa7P5CGXwoYnSjQrI7g9UUXYP16LXOw

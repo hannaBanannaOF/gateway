@@ -13,3 +13,7 @@ spring:
                   allowedMethods: "*"
                   allowedHeaders: "*"
                   allowCredentials: true
+  data:
+    mongodb:
+      # Cria o índice TTL de TokenDocument.expiresAt na subida
+      auto-index-creation: true
